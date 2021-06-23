@@ -17,7 +17,7 @@ namespace Core.Entities
         [Required(ErrorMessage = "Price is required")]
         [RegularExpression(@"^\d+\.\d{0,2}$", ErrorMessage = "Invalid price")]
         [Range(0, 9999999999999999.99)]
-        public decimal Price { get; set; }
+        public double Price { get; set; }
 
         [Required]
         public string PictureUrl { get; set; }

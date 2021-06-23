@@ -12,6 +12,8 @@ using Core.Entities;
 using Core.Specifications;
 using API.Dtos;
 using AutoMapper;
+using API.Errors;
+using API.Helpers;
 
 namespace API.Controllers
 {
@@ -24,9 +26,9 @@ namespace API.Controllers
         private readonly IGenericRepository<ProductType> _productTypeRepo;
         private readonly IMapper _mapper;
 
-        public ProductsController(IGenericRepository<Product> productsRepo, IGenericRepository<ProductBrand> productBrandRepo, IGenericRepository<ProductType> productTypeRepo,IMapper mapper)
+        public ProductsController(IGenericRepository<Product> productsRepo, IGenericRepository<ProductBrand> productBrandRepo, IGenericRepository<ProductType> productTypeRepo, IMapper mapper)
         {
-            
+
             _productTypeRepo = productTypeRepo;
             _mapper = mapper;
             _productBrandRepo = productBrandRepo;
@@ -37,23 +39,37 @@ namespace API.Controllers
 
 
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<ProductToReturnDto>>> GetProducts()
+        public async Task<ActionResult<Pagination<ProductToReturnDto>>> GetProducts([FromQuery] ProductSpecParams productParams)
         {
-            var spec = new ProductsWithTypesAndBrandsSpecification();
+            var spec = new ProductsWithTypesAndBrandsSpecification(productParams);
+
+            var countSpec = new ProductWithFiltersForCountSpecificication(productParams);
+
+            var totalItems = await _productsRepo.CountAsync(countSpec);
 
             var productsData = await _productsRepo.ListAsync(spec);
 
             var products = _mapper.Map<IReadOnlyList<Product>, IReadOnlyList<ProductToReturnDto>>(productsData);
-            return Ok(products);
+
+            var response = new Pagination<ProductToReturnDto>(productParams.PageIndex, productParams.PageSize, totalItems, products);
+          
+            return Ok(response);
 
         }
         
         [HttpGet("{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse),StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetProduct(int id)
         {
             var spec = new ProductsWithTypesAndBrandsSpecification(id);
 
             var productData = await _productsRepo.GetEntityWithSpec(spec);
+            
+            if(productData == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
 
             var product = _mapper.Map<Product, ProductToReturnDto>(productData);
 
